@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+
+{% block title %}Resumen Mensual{% endblock %}
+
+{% block content %}
+<h1 class="my-4">Resumen Mensual</h1>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Mes</th>
+            <th>Total Pagos</th>
+            <th>Total Facturas</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in summary %}
+        <tr>
+            <td>{{ row.month }}</td>
+            <td>{{ row.total_pagos }}</td>
+            <td>{{ row.total_facturas }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
