@@ -1,18 +1,18 @@
 {% extends "layout.html" %}
 
-{% block title %}Inicio - Gestión de Clientes{% endblock %}
+{% block title %}Home - Client Management{% endblock %}
 
 {% block content %}
-<h1 class="my-4" style="margin-bottom: 0;">Clientes</h1>
+<h1 class="my-4" style="margin-bottom: 0;">Clients</h1>
 <form method="GET" action="/" class="d-flex mb-2">
-    <input class="form-control me-2" type="text" name="query" placeholder="Buscar cliente">
-    <button class="btn btn-outline-success" type="submit">Buscar</button>
+    <input class="form-control me-2" type="text" name="query" placeholder="Search client">
+    <button class="btn btn-outline-success" type="submit">Search</button>
 </form>
-<a href="/add_client" class="btn btn-primary mb-2">Añadir Cliente</a>
+<a href="/create_client" class="btn btn-primary mb-2">Add Client</a>
 
 {% if negative_clients %}
 <div class="alert alert-danger mb-2">
-    <h4>Clientes con saldo negativo:</h4>
+    <h4>Clients with negative balance:</h4>
     <ul>
         {% for client in negative_clients %}
         <li>{{ client.name }}: {{ client.balance }}</li>
@@ -28,10 +28,10 @@
     <table class="table table-striped table-hover mb-0">
         <thead>
             <tr>
-                <th>Nombre</th>
+                <th>Name</th>
                 <th>Email</th>
-                <th>Saldo</th>
-                <th>Acciones</th>
+                <th>Balance</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -42,16 +42,18 @@
                     <td>{{ client.email }}</td>
                     <td>{{ client.balance }}</td>
                     <td>
-                        <a href="/client/{{ client.id }}" class="btn btn-info btn-sm me-1">Ver</a>
-                        <form method="POST" action="/client/{{ client.id }}/delete" style="display:inline;">
-                            <button class="btn btn-danger btn-sm" onclick="return confirm('¿Estás seguro de eliminar este cliente?')">Eliminar</button>
-                        </form>
+                        <div class="btn-group" role="group">
+                            <a href="/client/{{ client.id }}" class="btn btn-info btn-sm">View</a>
+                            <form method="POST" action="/client/{{ client.id }}/delete" style="display:inline;">
+                                <button class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this client?')">Delete</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="4" class="text-center">No hay clientes registrados.</td>
+                    <td colspan="4" class="text-center">No clients registered.</td>
                 </tr>
             {% endif %}
         </tbody>
@@ -62,13 +64,13 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const ctx = document.getElementById('balanceChart').getContext('2d');
-        const data = JSON.parse(`{{ chart_data | tojson | safe }}`); // Serialización segura
+        const data = JSON.parse(`{{ chart_data | tojson | safe }}`); // Secure serialization
         new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: data.labels,
                 datasets: [{
-                    label: 'Saldo Adeudado',
+                    label: 'Outstanding Balance',
                     data: data.values,
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     borderColor: 'rgba(75, 192, 192, 1)',

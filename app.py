@@ -10,16 +10,16 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
-# Configuración de la clave secreta
-app.secret_key = os.urandom(24)  # Genera una clave aleatoria cada vez que se ejecuta la aplicación
+# Secret key configuration
+app.secret_key = os.urandom(24)
 
-# Función para obtener conexión a la base de datos
+# Function to get a connection to the database
 def get_db_connection():
     conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row  # Permite acceder a las columnas por nombre
+    conn.row_factory = sqlite3.Row
     return conn
 
-# Inicializar la base de datos
+# Initialize the database
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -53,25 +53,27 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Configuración de Flask-Login
+# Flask-Login configuration
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Modelo de Usuario
+# User model
 class User(UserMixin):
     def __init__(self, id, username):
         self.id = id
         self.username = username
 
-# Usuario Simulado (para pruebas, reemplazar con base de datos en producción)
+# Simulated user (for testing purposes, replace with database in production)
 USERS = {"admin": {"id": 1, "username": "admin", "password": "password123"}}
 
 @login_manager.user_loader
 def load_user(user_id):
-    for username, user in USERS.items():
-        if user["id"] == int(user_id):
-            return User(user["id"], username)
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+    conn.close()
+    if user:
+        return User(user['id'], user['username'])
     return None
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -88,7 +90,7 @@ def login():
             login_user(User(user['id'], user['username']))
             return redirect(url_for('index'))
 
-        return render_template('login.html', error="Usuario o contraseña incorrectos.")
+        return render_template('login.html', error="Incorrect username or password.")
     return render_template('login.html')
 
 @app.route('/logout')
@@ -144,9 +146,9 @@ def index():
         negative_clients=negative_clients
     )
 
-@app.route('/add_client', methods=['GET', 'POST'])
+@app.route('/create_client', methods=['GET', 'POST'])
 @login_required
-def add_client():
+def create_client():
     if request.method == 'POST':
         name = request.form['name']
         email = request.form['email']
@@ -158,7 +160,7 @@ def add_client():
         conn.commit()
         conn.close()
         return redirect(url_for('index'))
-    return render_template('add_client.html')
+    return render_template('create_client.html')
 
 @app.route('/client/<int:client_id>')
 @login_required
@@ -169,7 +171,7 @@ def client_details(client_id):
         (client_id, current_user.id)
     ).fetchone()
     if client is None:
-        return redirect(url_for('index'))  # Evita el acceso a clientes de otros usuarios
+        return redirect(url_for('index'))
     
     transactions = conn.execute(
         'SELECT * FROM transactions WHERE client_id = ?', 
@@ -178,13 +180,13 @@ def client_details(client_id):
     conn.close()
     return render_template('client_details.html', client=client, transactions=transactions)
 
-@app.route('/client/<int:client_id>/add_transaction', methods=['POST'])
+@app.route('/client/<int:client_id>/create_transaction', methods=['POST'])
 @login_required
-def add_transaction(client_id):
+def create_transaction(client_id):
     type_ = request.form['type']
     amount = float(request.form['amount'])
 
-    if type_ == 'pago':
+    if type_ == 'payment':
         amount = -amount
 
     conn = get_db_connection()
@@ -203,22 +205,21 @@ def generate_invoice(client_id):
     transactions = conn.execute('SELECT * FROM transactions WHERE client_id = ?', (client_id,)).fetchall()
     conn.close()
 
-    # Crear un archivo PDF en memoria
+    # Create a PDF file in memory
     buffer = BytesIO()
     p = canvas.Canvas(buffer)
-    p.drawString(100, 800, f"Factura para {client['name']}")
+    p.drawString(100, 800, f"Client Invoice for {client['name']}")
     p.drawString(100, 780, f"Email: {client['email']}")
-    p.drawString(100, 760, f"Saldo: {client['balance']}")
+    p.drawString(100, 760, f"Outstanding Balance: ${client['balance']:.2f}")
     y = 740
     for transaction in transactions:
         p.drawString(100, y, f"{transaction['date']} - {transaction['type']}: {transaction['amount']}")
         y -= 20
     p.save()
 
-    # Mover el puntero al inicio del buffer
     buffer.seek(0)
 
-    # Retornar el PDF como respuesta
+    # Return the PDF as a response
     return Response(buffer, mimetype='application/pdf', headers={
         'Content-Disposition': f'inline; filename=invoice_{client_id}.pdf'
     })
@@ -226,27 +227,37 @@ def generate_invoice(client_id):
 @app.route('/monthly_summary')
 @login_required
 def monthly_summary():
-    conn = get_db_connection()
-    summary = conn.execute('''
-        SELECT strftime('%Y-%m', date) AS month,
-               SUM(CASE WHEN type = 'pago' THEN amount ELSE 0 END) AS total_pagos,
-               SUM(CASE WHEN type = 'factura' THEN amount ELSE 0 END) AS total_facturas
-        FROM transactions
-        GROUP BY month
-    ''').fetchall()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        summary = conn.execute('''
+            SELECT strftime('%Y-%m', date) AS month,
+                   SUM(CASE WHEN type = 'payment' THEN amount ELSE 0 END) AS total_payments,
+                   SUM(CASE WHEN type = 'invoice' THEN amount ELSE 0 END) AS total_invoices
+            FROM transactions
+            WHERE client_id IN (
+                SELECT id FROM clients WHERE user_id = ?
+            )
+            GROUP BY month
+            ORDER BY month DESC
+        ''', (current_user.id,)).fetchall()
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        summary = []
+    finally:
+        conn.close()
+
     return render_template('monthly_summary.html', summary=summary)
 
 @app.route('/export')
 @login_required
 def export_clients():
     conn = get_db_connection()
-    clients = conn.execute('SELECT * FROM clients').fetchall()
+    clients = conn.execute('SELECT * FROM clients WHERE user_id = ?', (current_user.id,)).fetchall()
     conn.close()
 
     def generate():
         data = csv.writer()
-        data.writerow(['ID', 'Nombre', 'Email', 'Saldo'])
+        data.writerow(['Client ID', 'Name', 'Email', 'Outstanding Balance'])
         for client in clients:
             data.writerow([client['id'], client['name'], client['email'], client['balance']])
         yield data.getvalue()
@@ -268,10 +279,22 @@ def delete_client(client_id):
 @app.route('/client/<int:client_id>/transaction/<int:transaction_id>/delete', methods=['POST'])
 @login_required
 def delete_transaction(client_id, transaction_id):
-    # Verificar si la transacción pertenece al cliente actual y al usuario autenticado
+    # Verify if the transaction belongs to the current client and authenticated user
     conn = get_db_connection()
     transaction = conn.execute(
-        'SELECT t.id FROM transactions t JOIN clients c ON t.client_id = c.id WHERE t.id = ? AND c.id = ? AND c.user_id = ?', 
+        '''
+        SELECT t.id 
+        FROM transactions t 
+        WHERE t.id = ? 
+        AND t.client_id = ? 
+        AND EXISTS (
+            SELECT NULL 
+            FROM clients c 
+            WHERE c.id = t.client_id 
+                AND c.user_id = ? 
+            LIMIT 1
+        )
+        ''', 
         (transaction_id, client_id, current_user.id)
     ).fetchone()
     
@@ -287,6 +310,11 @@ def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
+        confirm_password = request.form['password_confirmation']
+
+        if password != confirm_password:
+            return render_template('register.html', error="Passwords do not match.")
+        
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
 
         try:
@@ -296,10 +324,10 @@ def register():
             conn.close()
             return redirect(url_for('login'))
         except sqlite3.IntegrityError:
-            return render_template('register.html', error="El nombre de usuario ya está en uso.")
+            return render_template('register.html', error="The username is already in use.")
     return render_template('register.html')
 
-login_manager.login_message = "Por favor, inicia sesión para acceder a esta página."
+login_manager.login_message = "Please log in to access this page."
 login_manager.login_message_category = "info"
 
 if __name__ == '__main__':

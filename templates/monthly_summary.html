@@ -1,25 +1,31 @@
 {% extends "layout.html" %}
 
-{% block title %}Resumen Mensual{% endblock %}
+{% block title %}Monthly Summary{% endblock %}
 
 {% block content %}
-<h1 class="my-4">Resumen Mensual</h1>
+<h1 class="my-4">Monthly Summary</h1>
+
+{% if summary %}
 <table class="table">
     <thead>
         <tr>
-            <th>Mes</th>
-            <th>Total Pagos</th>
-            <th>Total Facturas</th>
+            <th>Month</th>
+            <th>Total Payments</th>
+            <th>Total Invoices</th>
         </tr>
     </thead>
     <tbody>
         {% for row in summary %}
         <tr>
             <td>{{ row.month }}</td>
-            <td>{{ row.total_pagos }}</td>
-            <td>{{ row.total_facturas }}</td>
+            <td>{{ row.total_pagos | round(2) }}</td>
+            <td>{{ row.total_facturas | round(2) }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+{% else %}
+<p class="alert alert-info text-center">No transactions available for this month.</p>
+{% endif %}
+
 {% endblock %}

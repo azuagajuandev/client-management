@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <h1 class="text-center">{{ title }}</h1>
+            <form method="POST" action="{{ form_action }}" class="mt-4">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username" name="username" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+
+                {% if show_confirm_password %}
+                <div class="mb-3">
+                    <label for="password_confirmation" class="form-label">Confirm Password</label>
+                    <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" required>
+                </div>
+                {% endif %}
+                
+                {% if error %}
+                <div class="alert alert-danger">{{ error }}</div>
+                {% endif %}
+                
+                <button type="submit" class="btn btn-primary w-100">{{ button_text }}</button>
+            </form>
+
+            <p class="text-center mt-3">
+                {% if show_confirm_password %}
+                    Already have an account? 
+                    <a href="/login">Log in here</a>
+                {% else %}
+                    Don't have an account? 
+                    <a href="/register">Sign up here</a>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

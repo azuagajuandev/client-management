@@ -1,0 +1,45 @@
+# Entornos virtuales
+venv/
+*.pyc
+__pycache__/
+
+# Archivos de base de datos
+database.db
+
+# Configuración de entorno y archivos de seguridad
+.env
+
+# Archivos generados por el sistema operativo
+.DS_Store
+
+# Archivos de node_modules
+node_modules/
+
+# Archivos de log y caché
+*.log
+*.cache
+*.sqlite3
+
+# Archivos de paquetes de Python
+*.egg-info/
+*.dist-info/
+
+# Archivos de Pytest y Cobertura
+htmlcov/
+.coverage
+
+# Archivos de configuración de IDEs
+.vscode/
+.idea/
+
+# Archivos de Jupyter Notebooks (si es aplicable)
+.ipynb_checkpoints/
+
+# Archivos temporales y binarios
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# Archivos de personalización de usuarios
+*.env
