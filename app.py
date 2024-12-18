@@ -7,6 +7,7 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
 import io
+from io import BytesIO
 
 app = Flask(__name__)
 
