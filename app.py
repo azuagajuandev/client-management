@@ -3,10 +3,10 @@ import sqlite3
 import json
 import csv
 from reportlab.pdfgen import canvas
-from io import BytesIO
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
+import io
 
 app = Flask(__name__)
 
@@ -255,14 +255,16 @@ def export_clients():
     clients = conn.execute('SELECT * FROM clients WHERE user_id = ?', (current_user.id,)).fetchall()
     conn.close()
 
-    def generate():
-        data = csv.writer()
-        data.writerow(['Client ID', 'Name', 'Email', 'Outstanding Balance'])
-        for client in clients:
-            data.writerow([client['id'], client['name'], client['email'], client['balance']])
-        yield data.getvalue()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Client ID', 'Name', 'Email', 'Outstanding Balance'])
 
-    response = Response(generate(), mimetype='text/csv')
+    for client in clients:
+        writer.writerow([client['id'], client['name'], client['email'], client['balance']])
+
+    output.seek(0)
+
+    response = Response(output, mimetype='text/csv')
     response.headers['Content-Disposition'] = 'attachment; filename=clients.csv'
     return response
 
@@ -279,11 +281,11 @@ def delete_client(client_id):
 @app.route('/client/<int:client_id>/transaction/<int:transaction_id>/delete', methods=['POST'])
 @login_required
 def delete_transaction(client_id, transaction_id):
-    # Verify if the transaction belongs to the current client and authenticated user
+    # Step 1: Retrieve the transaction to get its amount and type before deleting it
     conn = get_db_connection()
     transaction = conn.execute(
         '''
-        SELECT t.id 
+        SELECT t.amount, t.type 
         FROM transactions t 
         WHERE t.id = ? 
         AND t.client_id = ? 
@@ -299,11 +301,23 @@ def delete_transaction(client_id, transaction_id):
     ).fetchone()
     
     if transaction:
+        amount = transaction['amount']  # Get the transaction amount
+        type_ = transaction['type']  # Get the transaction type ('payment' or 'invoice')
+        
+        # Step 2: Adjust the client's balance to revert the impact of the deleted transaction
+        if type_ == 'payment':
+            # If it was a payment, it was subtracted from the balance, so we need to add it back
+            conn.execute('UPDATE clients SET balance = balance + ? WHERE id = ?', (-amount, client_id))
+        else:
+            # If it was an invoice, it was added to the balance, so we need to subtract it
+            conn.execute('UPDATE clients SET balance = balance - ? WHERE id = ?', (amount, client_id))
+
+        # Step 3: Delete the transaction from the database
         conn.execute('DELETE FROM transactions WHERE id = ?', (transaction_id,))
-        conn.commit()
+        conn.commit()  # Save the changes to the database
     
-    conn.close()
-    return redirect(url_for('client_details', client_id=client_id))
+    conn.close()  # Close the database connection
+    return redirect(url_for('client_details', client_id=client_id))  # Redirect to the client's details page
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
