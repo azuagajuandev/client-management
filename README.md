@@ -2,7 +2,7 @@
 # **Client Management System**
 
 ## 📽️ **Video Demo**
-[Insert Video URL Here]
+https://youtu.be/ytNRwZ60Tro
 
 ---
 
