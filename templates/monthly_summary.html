@@ -18,8 +18,8 @@
         {% for row in summary %}
         <tr>
             <td>{{ row.month }}</td>
-            <td>{{ row.total_pagos | round(2) }}</td>
-            <td>{{ row.total_facturas | round(2) }}</td>
+            <td>{{ row.total_payments | round(2) }}</td>
+            <td>{{ row.total_invoices | round(2) }}</td>
         </tr>
         {% endfor %}
     </tbody>
